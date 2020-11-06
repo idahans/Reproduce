@@ -1,0 +1,203 @@
+---
+title: "Project Reproducibility Course 2020"
+author: "Ida Hansson"
+date: "November 6, 2020"
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Abstract
+
+The task of this project was to describe the relationships between number of total bike rentals and variables that seem to be of importance. From the results of this analysis the hour of the day seems to be of importance for how many bikes that are being rent.
+
+# Material and Methods
+
+The data used in this analysis is called *bikes* and is automatically loaded with the package *bikerentals*. The data set consist of hourly rental data, of the first 19 days of each month, spanning two years. 
+
+#### Data Fields
+* *datetime* - hourly date + timestamp
+* *season* -   
+1 = spring, 2 = summer, 3 = fall, 4 = winter
+* *holiday* - whether the day is considered a holiday
+* *workingday* - whether the day is neither a weekend nor holiday
+* *weather* -   
+1: Clear, Few clouds, Partly cloudy, Partly cloudy  
+2: Mist + Cloudy, Mist + Broken clouds, Mist + Few clouds, Mist  
+3: Light Snow, Light Rain + Thunderstorm + Scattered clouds, Light Rain + Scattered clouds  
+4: Heavy Rain + Ice Pallets + Thunderstorm + Mist, Snow + Fog
+* *temp* - temperature in Celsius
+* *atemp* - "feels like" temperature in Celsius
+* *humidity* - relative humidity
+* *windspeed* - wind speed
+* *casual* - number of non-registered user rentals initiated
+* *registered* - number of registered user rentals initiated
+* *count* - number of total rentals  
+  
+    
+    
+
+
+#### Install and load packages  
+
+First we need to install and load all the packages needed. Start install the packages *tidyverse*, *lubridate*, *randomForest* and *devtools*, if you don´t already have them installed. Then you need to load the *devtools* package before you can install the *bikerentals* package from github. Load all the packages required.  
+
+
+
+```{r}
+#install.packages("tidyverse")
+#install.packages("lubridate")
+#install.packages("randomForest")
+#install.packages("devtools")
+
+
+library(devtools)
+
+#Install the bikerentals package from the gitHub repository "Reproduce" of "idahans"
+install_github("idahans/Reproduce")
+
+library(lubridate)
+library(tidyverse)
+library(randomForest)
+library(bikerentals)
+```
+
+
+#### Look at the data  
+
+The *bikes* data comes with the packages *bikerentals*. Start with how the data set looks like.  
+
+
+```{r}
+
+head(bikes)
+
+```
+
+
+Look at the structure of the data set  
+
+```{r}
+str(bikes)
+```
+  
+  
+
+#### Set variables as factors  
+
+Set the variables *season*, *holiday*, *workingday* and *weather* as factors.  
+
+
+```{r}
+
+bikes$season <- as.factor(bikes$season)
+bikes$holiday <- as.factor(bikes$holiday)
+bikes$workingday <- as.factor(bikes$workingday)
+bikes$weather <- as.factor(bikes$weather)
+
+```
+  
+  
+# Results 
+
+
+Start look at the summary of the data set and see if there are any missing values (NAs) in the data.  
+
+```{r}
+summary(bikes)
+```
+There is no missing values in the data.  
+
+
+#### Extract Variables  
+
+Here we use the `extract_var_function` from the *bikerentals* packages.  
+Extract the *datetime* column into new columns of *hour*, *day* and *month*, and set these as factors. Extract only the essential variables to a new data frame called *variables*. We are not using the information from *causal* and *registered*, so these columns will be excluded here. Since we have the *datetime* as *hour*, *day* and *month* now, we also exclude the column *datetime*.  
+
+```{r}
+variables <- extract_var(bikes)
+head(variables)
+```
+  
+  
+#### Extract Variables and keep count in the data
+Here we use the `keep_all_function` from the *bikerentals* package. This function does the same as `ectract_var_function` but also includes the count column. We use this function to make a new data set called *bikes_all*.  
+
+```{r}
+bikes_all <- keep_all(bikes)
+head(bikes_all)
+```
+  
+  
+Now we can look at the structure of *bikes_all* and see that wee also have *hour*, *day* and *month* as factors.  
+
+```{r}
+str(bikes_all)
+```
+  
+  
+### Random Forest
+Now we want to use the Random Forest model to compute the Variable Important Measure and find a ranking of variables that seems to be of importance.
+ 
+
+```{r}
+ranfor <- randomForest(variables, bikes$count, ntree = 100, importance = TRUE)
+
+imp <- importance(ranfor, type = 1)
+
+variableImportance <- data.frame(Variable = row.names(imp), Importance = imp[,1])
+
+variableImportance
+```
+
+Since Random Forests are stochastic by nature, the results here may change slightly from run to run. However, the results here will show that *hour* have the highest level of importance. We can make a plot of this to get a better overview.  
+
+
+### Plot Random Forest Variable Importance  
+
+```{r}
+ggplot(variableImportance, aes(x=reorder(Variable, Importance), y=Importance)) +
+  geom_bar(stat="identity", fill="turquoise") +
+  coord_flip() +
+  xlab("") +
+  ylab("Importance") + 
+  ggtitle("Random Forest Variable Importance\n") +
+  theme_classic()
+```
+ 
+Since the hour of the day seems to be of importance to the demand of bike rentals we can make a plot of total number of bike rentals and hour of the day.  
+
+
+### Plot Bike Rentals and Hour of the day  
+
+```{r}
+bikes_all %>% group_by(hour) %>% 
+  summarize(total = sum(count)) %>% 
+  ggplot() + 
+  geom_bar(aes(hour, total), stat = "identity", color = "black", fill = "purple") + 
+  ggtitle("Total Number of Bike Rentals Across Hours of the Day") + 
+  xlab("Hour of the day") + ylab("Number of total bike rentals") + 
+  theme_classic()
+
+```
+
+In this plot we can see the distribution of bike rentals during the hours of the day, and it seems that most bikes are rent at 8 O'clock in the morning and at 5 and 6 in the evening.
+
+
+# Literature  
+
+Fanaee-T, Hadi, and Gama, Joao, Event labeling combining ensemble detectors and background
+knowledge, Progress in Artificial Intelligence (2013): pp. 1-15, Springer Berlin Heidelberg.  
+
+Breiman and Cutler's Random Forests for Classification and Regression <https://www.stat.berkeley.edu/~breiman/RandomForests/>
+
+
+
+
+
+
